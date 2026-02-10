@@ -6,7 +6,8 @@ import { Candle } from "../engine/types";
 export type BybitInterval = "1" | "3" | "5" | "15" | "60";
 
 const WS_URL = env.BYBIT_WS_URL || "wss://stream.bybit.com/v5/public/linear";
-const REST_URL = env.BYBIT_REST_URL || "https://api.bybit.com";
+const REST_URL = env.BYBIT_PROXY_URL || env.BYBIT_REST_URL || "https://api.bybit.com";
+const BINANCE_PROXY = process.env.BINANCE_PROXY_URL || env.BYBIT_PROXY_URL?.includes("binance") ? env.BYBIT_PROXY_URL : process.env.BINANCE_PROXY_URL;
 
 async function fetchBinanceKlines(params: {
   symbol: string;
@@ -69,6 +70,25 @@ export async function fetchKlines(params: {
       .sort((a: Candle, b: Candle) => a.ts - b.ts);
   } catch (err) {
     // fallback to Binance public klines if Bybit blocks (e.g., 403 on some hosts)
+    if (BINANCE_PROXY) {
+      const map: Record<BybitInterval, string> = { "1": "1m", "3": "3m", "5": "5m", "15": "15m", "60": "1h" };
+      const url = new URL(BINANCE_PROXY);
+      url.searchParams.set("symbol", symbol);
+      url.searchParams.set("interval", map[interval]);
+      url.searchParams.set("limit", String(limit ?? 200));
+      const res = await fetch(url.toString(), { headers: { "User-Agent": "cryptoscalp/1.0" } });
+      if (!res.ok) throw new Error(`Binance REST failed: ${res.status}`);
+      const data = (await res.json()) as any[];
+      return data.map((row) => ({
+        ts: Number(row[0]),
+        open: Number(row[1]),
+        high: Number(row[2]),
+        low: Number(row[3]),
+        close: Number(row[4]),
+        volume: Number(row[5]),
+        confirmed: true,
+      }));
+    }
     return fetchBinanceKlines({ symbol, interval, limit });
   }
 }
