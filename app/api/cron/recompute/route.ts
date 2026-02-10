@@ -38,33 +38,46 @@ export async function POST(request: Request) {
           const safeNumber = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
           const fallbackZero = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
           const sweep = safeNumber(setup.sweepLevel) ?? setup.fvgLow;
-          // keep one record per symbol + createdAt to update status over time
           await db
-            .delete(setups)
-            .where(
-              and(eq(setups.symbol, setup.symbol), eq(setups.createdAt, new Date(setup.createdAt))),
-            );
-          await db.insert(setups).values({
-            id: setup.id,
-            symbol: setup.symbol,
-            timeframe: setup.timeframe,
-            direction: setup.direction,
-            status: setup.status,
-            score: setup.score,
-            createdAt: new Date(setup.createdAt),
-            updatedAt: new Date(setup.updatedAt),
-            fvgLow: setup.fvgLow,
-            fvgHigh: setup.fvgHigh,
-            sweepLevel: sweep,
-            entryPrice: setup.entryPrice,
-            stopLoss: setup.stopLoss,
-            tp1: setup.tp1,
-            tp2: safeNumber(setup.tp2),
-            tp3: fallbackZero(setup.tp3),
-            rrToTp1: setup.rrToTp1,
-            invalidationText: setup.invalidationText,
-            meta: setup.meta,
-          });
+            .insert(setups)
+            .values({
+              id: setup.id,
+              symbol: setup.symbol,
+              timeframe: setup.timeframe,
+              direction: setup.direction,
+              status: setup.status,
+              score: setup.score,
+              createdAt: new Date(setup.createdAt),
+              updatedAt: new Date(setup.updatedAt),
+              fvgLow: setup.fvgLow,
+              fvgHigh: setup.fvgHigh,
+              sweepLevel: sweep,
+              entryPrice: setup.entryPrice,
+              stopLoss: setup.stopLoss,
+              tp1: setup.tp1,
+              tp2: safeNumber(setup.tp2),
+              tp3: fallbackZero(setup.tp3),
+              rrToTp1: setup.rrToTp1,
+              invalidationText: setup.invalidationText,
+              meta: setup.meta,
+            })
+            .onConflictDoUpdate({
+              target: [setups.symbol, setups.createdAt],
+              set: {
+                status: setup.status,
+                score: setup.score,
+                updatedAt: new Date(setup.updatedAt),
+                sweepLevel: sweep,
+                entryPrice: setup.entryPrice,
+                stopLoss: setup.stopLoss,
+                tp1: setup.tp1,
+                tp2: safeNumber(setup.tp2),
+                tp3: fallbackZero(setup.tp3),
+                rrToTp1: setup.rrToTp1,
+                invalidationText: setup.invalidationText,
+                meta: setup.meta,
+              },
+            });
         }
       }
     } catch (err: any) {
