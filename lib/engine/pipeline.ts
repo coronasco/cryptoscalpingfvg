@@ -7,10 +7,13 @@ import { scoreSetup } from "./scoring";
 import { Bias, Candle, Direction, Setup, SetupStatus } from "./types";
 
 function deterministicId(symbol: string, createdAt: number, fvgLow: number, fvgHigh: number) {
-  const hex = crypto
-    .createHash("sha1")
-    .update(`${symbol}-${createdAt}-${fvgLow.toFixed(5)}-${fvgHigh.toFixed(5)}`)
-    .digest("hex");
+  const seed = `${symbol}-${createdAt}-${fvgLow.toFixed(5)}-${fvgHigh.toFixed(5)}`;
+  const hash = crypto.createHash("sha1").update(seed).digest();
+  const buf = hash.subarray(0, 16);
+  // set version 5 and RFC 4122 variant for a valid UUID
+  buf[6] = (buf[6] & 0x0f) | 0x50;
+  buf[8] = (buf[8] & 0x3f) | 0x80;
+  const hex = buf.toString("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
