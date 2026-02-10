@@ -8,6 +8,30 @@ export type BybitInterval = "1" | "3" | "5" | "15" | "60";
 const WS_URL = env.BYBIT_WS_URL || "wss://stream.bybit.com/v5/public/linear";
 const REST_URL = env.BYBIT_REST_URL || "https://api.bybit.com";
 
+async function fetchBinanceKlines(params: {
+  symbol: string;
+  interval: BybitInterval;
+  limit?: number;
+}): Promise<Candle[]> {
+  const map: Record<BybitInterval, string> = { "1": "1m", "3": "3m", "5": "5m", "15": "15m", "60": "1h" };
+  const url = new URL("https://api.binance.com/api/v3/klines");
+  url.searchParams.set("symbol", params.symbol);
+  url.searchParams.set("interval", map[params.interval]);
+  url.searchParams.set("limit", String(params.limit ?? 200));
+  const res = await fetch(url.toString(), { headers: { "User-Agent": "cryptoscalp/1.0" } });
+  if (!res.ok) throw new Error(`Binance REST failed: ${res.status}`);
+  const data = (await res.json()) as any[];
+  return data.map((row) => ({
+    ts: Number(row[0]),
+    open: Number(row[1]),
+    high: Number(row[2]),
+    low: Number(row[3]),
+    close: Number(row[4]),
+    volume: Number(row[5]),
+    confirmed: true,
+  }));
+}
+
 export async function fetchKlines(params: {
   symbol: string;
   interval: BybitInterval;
@@ -24,24 +48,29 @@ export async function fetchKlines(params: {
   if (start) url.searchParams.set("start", String(start));
   if (end) url.searchParams.set("end", String(end));
 
-  const res = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) throw new Error(`Bybit REST failed: ${res.status}`);
-  const json = await res.json();
-  const list = json?.result?.list ?? [];
-  return list
-    .map((row: string[]) => {
-      const [startTs, open, high, low, close, volume] = row;
-      return {
-        ts: Number(startTs),
-        open: Number(open),
-        high: Number(high),
-        low: Number(low),
-        close: Number(close),
-        volume: Number(volume),
-        confirmed: true,
-      } as Candle;
-    })
-    .sort((a: Candle, b: Candle) => a.ts - b.ts);
+  try {
+    const res = await fetch(url.toString(), { cache: "no-store", headers: { "User-Agent": "cryptoscalp/1.0" } });
+    if (!res.ok) throw new Error(`Bybit REST failed: ${res.status}`);
+    const json = await res.json();
+    const list = json?.result?.list ?? [];
+    return list
+      .map((row: string[]) => {
+        const [startTs, open, high, low, close, volume] = row;
+        return {
+          ts: Number(startTs),
+          open: Number(open),
+          high: Number(high),
+          low: Number(low),
+          close: Number(close),
+          volume: Number(volume),
+          confirmed: true,
+        } as Candle;
+      })
+      .sort((a: Candle, b: Candle) => a.ts - b.ts);
+  } catch (err) {
+    // fallback to Binance public klines if Bybit blocks (e.g., 403 on some hosts)
+    return fetchBinanceKlines({ symbol, interval, limit });
+  }
 }
 
 type WsMessage =
