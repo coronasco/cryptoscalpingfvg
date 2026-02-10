@@ -10,6 +10,8 @@ const envSchema = z.object({
   CRON_SECRET: z.string().optional(),
   BYBIT_WS_URL: z.string().default("wss://stream.bybit.com/v5/public/linear"),
   BYBIT_REST_URL: z.string().default("https://api.bybit.com"),
+  BYBIT_PROXY_URL: z.string().optional(),
+  BINANCE_PROXY_URL: z.string().optional(),
   WEBPUSH_VAPID_PUBLIC_KEY: z.string().optional(),
   WEBPUSH_VAPID_PRIVATE_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),

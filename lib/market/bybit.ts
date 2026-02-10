@@ -7,7 +7,7 @@ export type BybitInterval = "1" | "3" | "5" | "15" | "60";
 
 const WS_URL = env.BYBIT_WS_URL || "wss://stream.bybit.com/v5/public/linear";
 const REST_URL = env.BYBIT_PROXY_URL || env.BYBIT_REST_URL || "https://api.bybit.com";
-const BINANCE_PROXY = process.env.BINANCE_PROXY_URL || env.BYBIT_PROXY_URL?.includes("binance") ? env.BYBIT_PROXY_URL : process.env.BINANCE_PROXY_URL;
+const BINANCE_PROXY = env.BINANCE_PROXY_URL || process.env.BINANCE_PROXY_URL;
 
 async function fetchBinanceKlines(params: {
   symbol: string;
