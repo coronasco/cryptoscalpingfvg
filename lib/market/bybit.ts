@@ -38,6 +38,34 @@ async function fetchBinanceKlines(params: {
   }));
 }
 
+async function fetchOkxKlines(params: {
+  symbol: string;
+  interval: BybitInterval;
+  limit?: number;
+}): Promise<Candle[]> {
+  const map: Record<BybitInterval, string> = { "1": "1m", "3": "3m", "5": "5m", "15": "15m", "60": "1H" };
+  const instId = params.symbol.replace("USDT", "-USDT");
+  const url = new URL("https://www.okx.com/api/v5/market/candles");
+  url.searchParams.set("instId", instId);
+  url.searchParams.set("bar", map[params.interval]);
+  url.searchParams.set("limit", String(params.limit ?? 200));
+  const res = await fetch(url.toString(), { headers: { "User-Agent": "cryptoscalp/1.0" } });
+  if (!res.ok) throw new Error(`OKX REST failed: ${res.status}`);
+  const json = await res.json();
+  const list = json?.data ?? [];
+  return list
+    .map((row: any[]) => ({
+      ts: Number(row[0]),
+      open: Number(row[1]),
+      high: Number(row[2]),
+      low: Number(row[3]),
+      close: Number(row[4]),
+      volume: Number(row[5]),
+      confirmed: true,
+    }))
+    .sort((a: Candle, b: Candle) => a.ts - b.ts);
+}
+
 export async function fetchKlines(params: {
   symbol: string;
   interval: BybitInterval;
@@ -74,23 +102,28 @@ export async function fetchKlines(params: {
       })
       .sort((a: Candle, b: Candle) => a.ts - b.ts);
   } catch (err) {
-    const map: Record<BybitInterval, string> = { "1": "1m", "3": "3m", "5": "5m", "15": "15m", "60": "1h" };
-    const url = new URL(BINANCE_PROXY);
-    url.searchParams.set("symbol", symbol);
-    url.searchParams.set("interval", map[interval]);
-    url.searchParams.set("limit", String(limit ?? 200));
-    const res = await fetch(url.toString(), { headers: { "User-Agent": "cryptoscalp/1.0" } });
-    if (!res.ok) throw new Error(`Binance REST failed: ${res.status}`);
-    const data = (await res.json()) as any[];
-    return data.map((row) => ({
-      ts: Number(row[0]),
-      open: Number(row[1]),
-      high: Number(row[2]),
-      low: Number(row[3]),
-      close: Number(row[4]),
-      volume: Number(row[5]),
-      confirmed: true,
-    }));
+    // try Binance via proxy, then OKX as last resort
+    try {
+      const map: Record<BybitInterval, string> = { "1": "1m", "3": "3m", "5": "5m", "15": "15m", "60": "1h" };
+      const url = new URL(BINANCE_PROXY);
+      url.searchParams.set("symbol", symbol);
+      url.searchParams.set("interval", map[interval]);
+      url.searchParams.set("limit", String(limit ?? 200));
+      const res = await fetch(url.toString(), { headers: { "User-Agent": "cryptoscalp/1.0" } });
+      if (!res.ok) throw new Error(`Binance REST failed: ${res.status}`);
+      const data = (await res.json()) as any[];
+      return data.map((row) => ({
+        ts: Number(row[0]),
+        open: Number(row[1]),
+        high: Number(row[2]),
+        low: Number(row[3]),
+        close: Number(row[4]),
+        volume: Number(row[5]),
+        confirmed: true,
+      }));
+    } catch (err2) {
+      return fetchOkxKlines({ symbol, interval, limit });
+    }
   }
 }
 
