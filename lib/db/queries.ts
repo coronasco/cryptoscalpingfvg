@@ -79,14 +79,14 @@ export async function getPairDetails(symbol: string) {
           .from(pairs)
           .where(eq(pairs.symbol, symbol))
           .limit(1)
-          .then((r) => r[0]),
+          .then((r: typeof pairs.$inferSelect[]) => r[0]),
         db
           .select()
           .from(setups)
           .where(eq(setups.symbol, symbol))
           .orderBy(desc(setups.createdAt))
           .limit(15)
-          .then((r) => r as unknown as Setup[]),
+          .then((r: typeof setups.$inferSelect[]) => r as unknown as Setup[]),
       ]),
       timeout,
     ]) as any;
