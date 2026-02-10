@@ -1,9 +1,18 @@
+import crypto from "crypto";
 import { detectDisplacement } from "./displacement";
 import { computeBias } from "./bias";
 import { detectFVG } from "./fvg";
 import { detectSweeps } from "./sweep";
 import { scoreSetup } from "./scoring";
 import { Bias, Candle, Direction, Setup, SetupStatus } from "./types";
+
+function deterministicId(symbol: string, createdAt: number, fvgLow: number, fvgHigh: number) {
+  const hex = crypto
+    .createHash("sha1")
+    .update(`${symbol}-${createdAt}-${fvgLow.toFixed(5)}-${fvgHigh.toFixed(5)}`)
+    .digest("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
 
 function findSwing(candles: Candle[], direction: Direction): number | null {
   if (!candles.length) return null;
@@ -128,7 +137,7 @@ export function buildSetups(params: {
     });
 
     setups.push({
-      id: crypto.randomUUID(),
+      id: deterministicId(symbol, fvg.createdAt, fvg.low, fvg.high),
       symbol,
       timeframe: "15m",
       direction,

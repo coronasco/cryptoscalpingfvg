@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+// no filters needed beyond inserts
 import { env } from "@/lib/env";
 import { fetchKlines } from "@/lib/market/bybit";
 import { buildSetups } from "@/lib/engine/pipeline";
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
               meta: setup.meta,
             })
             .onConflictDoUpdate({
-              target: [setups.symbol, setups.createdAt],
+              target: setups.id,
               set: {
                 status: setup.status,
                 score: setup.score,
